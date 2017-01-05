@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="Hello">Hello World, Click Me!</string>
+    <string name="ApplicationName">Slideshow</string>
+	<string name="Start">Start Slideshow</string>
+	<string name="Stop">Stop Slideshow</string>
+</resources>
