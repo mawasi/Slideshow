@@ -3,11 +3,30 @@
     android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
-    <Button
-        android:text="@string/Start"
+    <LinearLayout
+        android:orientation="horizontal"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:id="@+id/button1" />
+        android:id="@+id/linearLayout1">
+        <TextView
+            android:text="Interval(Sec)"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/textView2" />
+        <EditText
+            android:inputType="numberDecimal"
+            android:layout_width="68.5dp"
+            android:layout_height="match_parent"
+            android:id="@+id/editText1"
+            android:text="5"
+            android:gravity="right" />
+		<Button
+            android:text="@string/Start"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:id="@+id/button1" />
+    </LinearLayout>
     <TextView
         android:text=""
         android:layout_width="match_parent"

@@ -9,6 +9,7 @@ using System.Timers;
 using System.IO;
 
 using Android.Graphics;
+using Android.Views;
 
 namespace Slideshow
 {
@@ -31,9 +32,15 @@ namespace Slideshow
 		// スライドショー開始、停止ボタン
 		Button			mButton = null;
 
-		Bitmap			mBitmap = null;
+		const int		BufferNum = 10;
+		Bitmap[]		mBitmaps = new Bitmap[BufferNum];
+		int				mBufferIndex = 0;
 
+		// インターバル時間設定用エディットテキスト
+		EditText		mEditText = null;
 
+		// ロック用オブジェクト
+		object			mLock = new object();
 
 
 		protected override void OnCreate(Bundle bundle)
@@ -44,6 +51,11 @@ namespace Slideshow
 			SetContentView (Resource.Layout.Main);
 
 			mCurrentIndex = 0;
+			mBufferIndex = 0;
+
+			for(int i = 0; i < mBitmaps.Length; i++) {
+				mBitmaps[i] = null;
+			}
 
 			// Downloadsディレクトリ取得
 			mDownloads = Android.OS.Environment.GetExternalStoragePublicDirectory(Android.OS.Environment.DirectoryDownloads);
@@ -63,13 +75,13 @@ namespace Slideshow
 					}
 				}
 				catch (Exception e) {
-					Console.WriteLine(e);
+					System.Diagnostics.Debug.WriteLine(e);
 				}
 			}
 #endif
 
 			mSlideshowTimer = new Timer();
-			mSlideshowTimer.Interval = 1000;//5000; // millisec
+//			mSlideshowTimer.Interval = 500;//5000; // millisec
 			mSlideshowTimer.AutoReset = true;	// 自動繰り返し
 			mSlideshowTimer.Elapsed += OnSlideshowTimerEvent;
 
@@ -77,8 +89,11 @@ namespace Slideshow
 
 			mButton = FindViewById<Button>(Resource.Id.button1);
 			mButton.Click += OnClickEvent;
+			mButton.RequestFocus();
 
 			mTextView = FindViewById<TextView>(Resource.Id.textView1);
+
+			mEditText = FindViewById<EditText>(Resource.Id.editText1);
 
 		}
 
@@ -96,6 +111,10 @@ namespace Slideshow
 			base.OnStart();
 		}
 
+		public override bool OnTouchEvent(MotionEvent e)
+		{
+			return base.OnTouchEvent(e);
+		}
 
 		/// <summary>
 		/// ボタンクリックイベント
@@ -120,34 +139,94 @@ namespace Slideshow
 		/// <param name="e"></param>
 		void OnSlideshowTimerEvent(object sender, EventArgs e)
 		{
-			var Max = mFileNameList.Count;
+#if true
+			lock(mLock) {
 
-			if(mCurrentIndex >= Max) {
-				mCurrentIndex = 0;
-			}
+	//			DateTime start = DateTime.Now;
 
-			var imagepath = mFileNameList[mCurrentIndex];
-			if(System.IO.File.Exists(imagepath)) {
-				if(mBitmap != null) {
-					mBitmap.Recycle();
+				int threadID = System.Threading.Thread.CurrentThread.ManagedThreadId;
+
+				var Max = mFileNameList.Count;
+
+				if(mCurrentIndex >= Max) {
+					mCurrentIndex = 0;
 				}
 
-				mBitmap = BitmapFactory.DecodeFile(imagepath);
+				var index = mCurrentIndex;
+				var imagepath = mFileNameList[index];
 
-				if(mBitmap != null){
+				// Bitmaps[]用のインデクス作成
+				int workindex = mBufferIndex % BufferNum;
+				int preindex = (workindex > 1) ? (workindex - 2) : (BufferNum - (2 - workindex));
+
+				if(mBitmaps[workindex] != null) {
+					mBitmaps[workindex].Recycle();
+					mBitmaps[workindex] = null;
+				}
+
+				if(GetBitmap(imagepath, out mBitmaps[workindex])){
 					RunOnUiThread(() => {
-						mTextView.Text = string.Format("{0}/{1} : {2}", mCurrentIndex, Max, imagepath);
-						mImageView.SetImageBitmap(mBitmap);
+						mTextView.Text = string.Format("{0}/{1}: pre{2} : work{3} : {4}", index, Max, preindex, workindex, imagepath);
+						mImageView.SetImageBitmap(mBitmaps[workindex]);
 					});
 				}
 
-			}
 
-			mCurrentIndex++;
+				if(mBitmaps[preindex] != null) {
+					mBitmaps[preindex].Recycle();
+					mBitmaps[preindex] = null;
+				}
+
+
+				mCurrentIndex++;
+				mBufferIndex++;
+
+		//		DateTime end = DateTime.Now;
+		//		TimeSpan ts = end - start;
+		//		System.Diagnostics.Debug.WriteLine("Elapsed Time = " + ts.TotalMilliseconds.ToString() + " ThreadID = " + threadID.ToString() + ".");
+				
+			}
+#else
+			// 処理を全部UIスレッドにぶん投げる
+			RunOnUiThread(
+				() => {
+					var Max = mFileNameList.Count;
+
+					if(mCurrentIndex >= Max) {
+						mCurrentIndex = 0;
+					}
+
+					var index = mCurrentIndex;
+					var imagepath = mFileNameList[index];
+
+					int workindex = index % BufferNum;
+					int preindex = (workindex > 0) ? (workindex - 1) : (BufferNum - 1);
+
+
+					if(mBitmaps[preindex] != null) {
+						mImageView.SetImageDrawable(null);
+			//			mImageView.SetImageBitmap(null);
+						mBitmaps[preindex].Recycle();
+						mBitmaps[preindex] = null;
+					}
+
+					if(GetBitmap(imagepath, out mBitmaps[workindex])){
+						mTextView.Text = string.Format("{0}/{1}: pre{2} : work{3} : {4}", index, Max, preindex, workindex, imagepath);
+						mImageView.SetImageBitmap(mBitmaps[workindex]);
+					}
+
+					mCurrentIndex++;
+
+
+				}
+			);
+#endif
 		}
 
 		void StartSlideshow()
 		{
+			double MilliSec = double.Parse(mEditText.Text);
+			mSlideshowTimer.Interval = MilliSec * 1000.0;
 			mButton.Text = GetString(Resource.String.Stop);
 			mSlideshowTimer.Start();
 		}
@@ -157,6 +236,30 @@ namespace Slideshow
 			mButton.Text = GetString(Resource.String.Start);
 			mSlideshowTimer.Stop();
 		}
+
+
+		/// <summary>
+		/// ファイルパスからbitmap取得
+		/// </summary>
+		/// <param name="path"></param>
+		/// <param name="bitmap"></param>
+		bool GetBitmap(string path, out Bitmap bitmap)
+		{
+			bool result = false;
+			bitmap = null;
+
+			if(System.IO.File.Exists(path)) {
+				bitmap = BitmapFactory.DecodeFile(path);
+
+				if(bitmap != null){
+					result = true;
+				}
+			}
+
+			return result;
+		}
+
+
 
 	}
 
