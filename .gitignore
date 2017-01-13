@@ -3,3 +3,5 @@ bin/
 obj/
 Slideshow.csproj.user
 Slideshow.csproj.bak
+Resources/Resource.Designer.cs
+
