@@ -168,7 +168,8 @@ namespace Slideshow
 
 				// Bitmaps[]用のインデクス作成
 				int workindex = mBufferIndex % BufferNum;
-				int preindex = (workindex > 1) ? (workindex - 2) : (BufferNum - (2 - workindex));
+				int half = BufferNum/2;
+				int releaseindex = (workindex > (half - 1)) ? (workindex - half) : (BufferNum - (half - workindex));
 
 				if(mBitmaps[workindex] != null) {
 					mBitmaps[workindex].Recycle();
@@ -177,15 +178,15 @@ namespace Slideshow
 
 				if(GetBitmap(imagepath, out mBitmaps[workindex])){
 					RunOnUiThread(() => {
-						mTextView.Text = string.Format("{0}/{1}: pre{2} : work{3} : {4}", index, Max, preindex, workindex, imagepath);
+						mTextView.Text = string.Format("{0}/{1}: release {2} : work {3} : {4}", index, Max, releaseindex, workindex, imagepath);
 						mImageView.SetImageBitmap(mBitmaps[workindex]);
 					});
 				}
 
 
-				if(mBitmaps[preindex] != null) {
-					mBitmaps[preindex].Recycle();
-					mBitmaps[preindex] = null;
+				if(mBitmaps[releaseindex] != null) {
+					mBitmaps[releaseindex].Recycle();
+					mBitmaps[releaseindex] = null;
 				}
 
 
@@ -214,18 +215,18 @@ namespace Slideshow
 					var imagepath = mFileNameList[index];
 
 					int workindex = index % BufferNum;
-					int preindex = (workindex > 0) ? (workindex - 1) : (BufferNum - 1);
+					int half = BufferNum/2;
+					int releaseindex = (workindex > (half - 1)) ? (workindex - half) : (BufferNum - (half - workindex));
 
 
-					if(mBitmaps[preindex] != null) {
-						mImageView.SetImageDrawable(null);
-			//			mImageView.SetImageBitmap(null);
-						mBitmaps[preindex].Recycle();
-						mBitmaps[preindex] = null;
+					if(mBitmaps[releaseindex] != null) {
+						mImageView.SetImageDrawable(null);	// bitmapに複数バッファもたせてるなら特にこれは必要ない
+						mBitmaps[releaseindex].Recycle();
+						mBitmaps[releaseindex] = null;
 					}
 
 					if(GetBitmap(imagepath, out mBitmaps[workindex])){
-						mTextView.Text = string.Format("{0}/{1}: pre{2} : work{3} : {4}", index, Max, preindex, workindex, imagepath);
+						mTextView.Text = string.Format("{0}/{1}: release {2} : work {3} : {4}", index, Max, releaseindex, workindex, imagepath);
 						mImageView.SetImageBitmap(mBitmaps[workindex]);
 					}
 
@@ -236,6 +237,7 @@ namespace Slideshow
 			);
 #endif
 		}
+
 
 		void StartSlideshow()
 		{
