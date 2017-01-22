@@ -59,26 +59,34 @@ namespace Slideshow
 
 			// Downloadsディレクトリ取得
 			mDownloads = Android.OS.Environment.GetExternalStoragePublicDirectory(Android.OS.Environment.DirectoryDownloads);
+
 #if false
 			// Downloadsディレクトリ内のファイル名全取得
 			mFileNameList = Directory.GetFiles(mDownloads.AbsolutePath).ToList();
 #else
+			try {
 			var filelist = Directory.GetFiles(mDownloads.AbsolutePath);
-			foreach(var file in filelist) {
-				BitmapFactory.Options options = new BitmapFactory.Options();
-				options.InJustDecodeBounds = true;
-				try {
-					BitmapFactory.DecodeFile(file, options);
-					if(options.OutMimeType != null) {
-						// 情報が取得できたということは画像ファイルなのでリストに追加する
-						mFileNameList.Add(file);
+				foreach(var file in filelist) {
+					BitmapFactory.Options options = new BitmapFactory.Options();
+					options.InJustDecodeBounds = true;
+					try {
+						BitmapFactory.DecodeFile(file, options);
+						if(options.OutMimeType != null) {
+							// 情報が取得できたということは画像ファイルなのでリストに追加する
+							mFileNameList.Add(file);
+						}
+					}
+					catch (Exception e) {
+						System.Diagnostics.Debug.WriteLine(e);
 					}
 				}
-				catch (Exception e) {
-					System.Diagnostics.Debug.WriteLine(e);
-				}
+			}
+			catch(Exception e) {
+				System.Diagnostics.Debug.WriteLine(e);
+				// このタイミングの例外発生は多分Directryがないので、その旨を通知してボタン無効化とかしてやるのが良さそう
 			}
 #endif
+
 
 			mSlideshowTimer = new Timer();
 //			mSlideshowTimer.Interval = 500;//5000; // millisec
@@ -148,6 +156,9 @@ namespace Slideshow
 
 				var Max = mFileNameList.Count;
 
+				// データが無いならそのまま終了
+				if(Max <= 0) return;
+
 				if(mCurrentIndex >= Max) {
 					mCurrentIndex = 0;
 				}
@@ -191,6 +202,9 @@ namespace Slideshow
 			RunOnUiThread(
 				() => {
 					var Max = mFileNameList.Count;
+
+					// データが無いならそのまま終了
+					if(Max <= 0) return;
 
 					if(mCurrentIndex >= Max) {
 						mCurrentIndex = 0;
